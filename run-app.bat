@@ -1,6 +1,8 @@
 @echo off
 setlocal
 
+set "APP_URL=http://localhost:8080"
+
 if exist ".env" (
   for /f "usebackq tokens=1,* delims==" %%A in (".env") do (
     echo %%A | findstr /b "#" >nul
@@ -11,4 +13,8 @@ if exist ".env" (
   exit /b 1
 )
 
-mvn spring-boot:run
+start "spring-angular-agent" cmd /k mvn spring-boot:run
+echo Starting Spring Boot...
+timeout /t 8 /nobreak >nul
+start "" "%APP_URL%"
+echo Opened %APP_URL%
