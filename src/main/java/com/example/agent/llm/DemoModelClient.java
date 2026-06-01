@@ -28,6 +28,9 @@ public class DemoModelClient implements ModelClient {
         if (lowered.contains("time") || lowered.contains("date")) {
             return "{\"tool\":\"current_time\",\"arguments\":{}}";
         }
+        if (lowered.contains("describe") && (lowered.contains("code") || lowered.contains("project") || lowered.contains("itself"))) {
+            return "{\"tool\":\"describe_code\",\"arguments\":{\"focus\":\"" + describeFocus(lowered) + "\"}}";
+        }
         Matcher matcher = CALCULATION.matcher(latest);
         if (lowered.contains("calculate") || matcher.find()) {
             String expression = matcher.find(0) ? matcher.group(1) : latest.replaceAll("(?i)calculate", "").trim();
@@ -61,6 +64,27 @@ public class DemoModelClient implements ModelClient {
     }
 
     private static String escape(String text) {
-        return text.replace("\\", "\\\\").replace("\"", "\\\"");
+        return text
+                .replace("\\", "\\\\")
+                .replace("\"", "\\\"")
+                .replace("\r", "\\r")
+                .replace("\n", "\\n")
+                .replace("\t", "\\t");
+    }
+
+    private static String describeFocus(String text) {
+        if (text.contains("frontend") || text.contains("angular")) {
+            return "frontend";
+        }
+        if (text.contains("backend") || text.contains("spring")) {
+            return "backend";
+        }
+        if (text.contains("tool")) {
+            return "tools";
+        }
+        if (text.contains("llm") || text.contains("model")) {
+            return "llm";
+        }
+        return "project";
     }
 }
