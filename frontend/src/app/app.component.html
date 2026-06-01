@@ -19,6 +19,7 @@
       <button type="button" (click)="setExample('What time is it?')">Time</button>
       <button type="button" (click)="setExample('Calculate (12 * 8) + 4')">Calculate</button>
       <button type="button" (click)="setExample('List project files')">Files</button>
+      <button type="button" (click)="setExample('Describe this project code')">Describe code</button>
     </div>
 
     <div class="messages" aria-live="polite">
@@ -42,7 +43,7 @@
         rows="3"
         [ngModel]="message()"
         (ngModelChange)="message.set($event)"
-        placeholder="Ask the agent to calculate, inspect files, or check time"
+        placeholder="Ask the agent to calculate, inspect files, check time, or describe this code"
       ></textarea>
       <button type="submit" [disabled]="loading() || !message().trim()" aria-label="Send message">
         <svg *ngIf="!loading()" lucideSend size="20"></svg>
