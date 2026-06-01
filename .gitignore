@@ -1,0 +1,9 @@
+target/
+.agent-memory/
+.env
+.idea/
+*.iml
+
+frontend/node_modules/
+frontend/dist/
+frontend/.angular/

@@ -1,0 +1,77 @@
+<main class="shell">
+  <section class="chat-pane">
+    <header class="topbar">
+      <div>
+        <h1>Spring Angular Agent</h1>
+        <p>Tool-using agent with backend guardrails and visible execution trace.</p>
+      </div>
+      <label class="trace-toggle">
+        <input
+          type="checkbox"
+          [ngModel]="traceEnabled()"
+          (ngModelChange)="traceEnabled.set($event)"
+        >
+        <span>Trace</span>
+      </label>
+    </header>
+
+    <div class="examples" aria-label="Example prompts">
+      <button type="button" (click)="setExample('What time is it?')">Time</button>
+      <button type="button" (click)="setExample('Calculate (12 * 8) + 4')">Calculate</button>
+      <button type="button" (click)="setExample('List project files')">Files</button>
+    </div>
+
+    <div class="messages" aria-live="polite">
+      <article *ngFor="let item of messages()" class="message" [class.user]="item.role === 'user'">
+        <div class="avatar">
+          <svg *ngIf="item.role === 'user'; else agentIcon" lucideWrench size="18"></svg>
+          <ng-template #agentIcon>
+            <svg lucideBot size="18"></svg>
+          </ng-template>
+        </div>
+        <div class="bubble">
+          <div class="meta">{{ item.role === 'user' ? 'You' : 'Agent' }} <span *ngIf="item.provider">via {{ item.provider }}</span></div>
+          <p>{{ item.text }}</p>
+        </div>
+      </article>
+    </div>
+
+    <form class="composer" (ngSubmit)="send()">
+      <textarea
+        name="message"
+        rows="3"
+        [ngModel]="message()"
+        (ngModelChange)="message.set($event)"
+        placeholder="Ask the agent to calculate, inspect files, or check time"
+      ></textarea>
+      <button type="submit" [disabled]="loading() || !message().trim()" aria-label="Send message">
+        <svg *ngIf="!loading()" lucideSend size="20"></svg>
+        <svg *ngIf="loading()" class="spin" lucideLoaderCircle size="20"></svg>
+      </button>
+    </form>
+
+    <p class="error" *ngIf="error()">{{ error() }}</p>
+  </section>
+
+  <aside class="trace-pane">
+    <div class="trace-header">
+      <h2>Tool Trace</h2>
+      <span>{{ latestTrace().length }} steps</span>
+    </div>
+
+    <div class="empty" *ngIf="latestTrace().length === 0">
+      No tool calls yet.
+    </div>
+
+    <article class="trace-item" *ngFor="let step of latestTrace()">
+      <div class="step-line">
+        <strong>Step {{ step.step }}</strong>
+        <span>{{ step.tool }}</span>
+      </div>
+      <label>Arguments</label>
+      <pre>{{ formatArguments(step.arguments) }}</pre>
+      <label>Result</label>
+      <pre>{{ step.result }}</pre>
+    </article>
+  </aside>
+</main>
