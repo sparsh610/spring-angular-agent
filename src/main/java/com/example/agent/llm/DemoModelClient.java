@@ -28,6 +28,9 @@ public class DemoModelClient implements ModelClient {
         if (lowered.contains("time") || lowered.contains("date")) {
             return "{\"tool\":\"current_time\",\"arguments\":{}}";
         }
+        if (asksForFlow(lowered)) {
+            return "{\"tool\":\"explain_app_flow\",\"arguments\":{\"focus\":\"" + flowFocus(lowered) + "\"}}";
+        }
         if (lowered.contains("describe") && (lowered.contains("code") || lowered.contains("project") || lowered.contains("itself"))) {
             return "{\"tool\":\"describe_code\",\"arguments\":{\"focus\":\"" + describeFocus(lowered) + "\"}}";
         }
@@ -86,5 +89,33 @@ public class DemoModelClient implements ModelClient {
             return "llm";
         }
         return "project";
+    }
+
+    private static boolean asksForFlow(String text) {
+        return text.contains("flow")
+                || text.contains("flowing")
+                || text.contains("request path")
+                || text.contains("how the app works")
+                || text.contains("how code works")
+                || text.contains("how request works");
+    }
+
+    private static String flowFocus(String text) {
+        if (text.contains("frontend") || text.contains("angular") || text.contains("ui")) {
+            return "frontend";
+        }
+        if (text.contains("backend") || text.contains("spring") || text.contains("api")) {
+            return "backend";
+        }
+        if (text.contains("model") || text.contains("llm") || text.contains("provider") || text.contains("qwen")) {
+            return "model";
+        }
+        if (text.contains("tool")) {
+            return "tools";
+        }
+        if (text.contains("config") || text.contains("env")) {
+            return "config";
+        }
+        return "end_to_end";
     }
 }
