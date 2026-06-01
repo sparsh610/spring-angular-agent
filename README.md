@@ -9,7 +9,8 @@ This project demonstrates a traceable AI-agent workflow with a Spring Boot backe
 - Tool registry for backend actions
 - Built-in tools for time, calculation, and project file listing
 - Guardrails for tool execution and max agent steps
-- Demo LLM mode that works without an API key
+- Ollama local LLM mode by default
+- Demo mode that works without a real LLM
 - Optional OpenAI-compatible Chat Completions mode
 - Angular proxy for local development
 - One-port production mode where Spring Boot serves the Angular build
@@ -19,6 +20,8 @@ This project demonstrates a traceable AI-agent workflow with a Spring Boot backe
 Start Spring Boot:
 
 ```powershell
+ollama pull qwen2.5-coder:1.5b
+ollama serve
 mvn spring-boot:run
 ```
 
@@ -60,9 +63,24 @@ Open:
 http://localhost:8080
 ```
 
-## Optional OpenAI Mode
+## LLM Providers
 
-By default the backend uses a deterministic demo model so the project works locally.
+By default the backend uses Ollama at `http://localhost:11434` with `qwen2.5-coder:1.5b`.
+
+Use a different local model:
+
+```powershell
+$env:AGENT_PROVIDER="ollama"
+$env:OLLAMA_MODEL="qwen3:8b"
+mvn spring-boot:run
+```
+
+Use deterministic demo mode without any real LLM:
+
+```powershell
+$env:AGENT_PROVIDER="demo"
+mvn spring-boot:run
+```
 
 To call an OpenAI-compatible Chat Completions API:
 
@@ -73,4 +91,4 @@ $env:OPENAI_MODEL="gpt-4.1-mini"
 mvn spring-boot:run
 ```
 
-If no API key is configured, keep `AGENT_PROVIDER=demo` or leave it unset.
+If no API key is configured, use `AGENT_PROVIDER=ollama` or `AGENT_PROVIDER=demo`.

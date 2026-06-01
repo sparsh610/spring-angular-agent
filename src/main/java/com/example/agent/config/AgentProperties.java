@@ -4,8 +4,9 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "agent")
 public class AgentProperties {
-    private String provider = "demo";
+    private String provider = "ollama";
     private int maxSteps = 6;
+    private final Ollama ollama = new Ollama();
     private final OpenAi openai = new OpenAi();
 
     public String getProvider() {
@@ -26,6 +27,31 @@ public class AgentProperties {
 
     public OpenAi getOpenai() {
         return openai;
+    }
+
+    public Ollama getOllama() {
+        return ollama;
+    }
+
+    public static class Ollama {
+        private String baseUrl = "http://localhost:11434";
+        private String model = "qwen2.5-coder:1.5b";
+
+        public String getBaseUrl() {
+            return baseUrl;
+        }
+
+        public void setBaseUrl(String baseUrl) {
+            this.baseUrl = baseUrl;
+        }
+
+        public String getModel() {
+            return model;
+        }
+
+        public void setModel(String model) {
+            this.model = model;
+        }
     }
 
     public static class OpenAi {
