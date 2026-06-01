@@ -7,7 +7,7 @@ This project demonstrates a traceable AI-agent workflow with a Spring Boot backe
 - Spring Boot REST API at `/api/agent/chat`
 - Angular chat UI with a tool trace panel
 - Tool registry for backend actions
-- Built-in tools for time, calculation, project file listing, and project code description
+- Built-in tools for time, calculation, project file listing, project code description, and app-flow explanation
 - Guardrails for tool execution and max agent steps
 - Ollama local LLM mode by default
 - Qwen OpenAI-compatible API provider

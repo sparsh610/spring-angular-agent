@@ -26,7 +26,7 @@ export class AppComponent {
   readonly messages = signal<ChatMessage[]>([
     {
       role: 'agent',
-      text: 'Ask for the current time, a calculation, project files, or a description of this code. The backend will show tool calls when trace is enabled.',
+      text: 'Ask for the current time, a calculation, project files, a code description, or the end-to-end app flow. The backend will show tool calls when trace is enabled.',
       provider: 'system',
       trace: []
     }
