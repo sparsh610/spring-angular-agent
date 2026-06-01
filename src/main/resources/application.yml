@@ -7,6 +7,10 @@ agent:
   ollama:
     base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
     model: ${OLLAMA_MODEL:qwen2.5-coder:1.5b}
+  qwen:
+    api-key: ${QWEN_API_KEY:}
+    model: ${QWEN_MODEL:Qwen/Qwen2.5-7B-Instruct-AWQ}
+    base-url: ${QWEN_BASE_URL:http://103.42.50.41:443/api1}
   openai:
     api-key: ${OPENAI_API_KEY:}
     model: ${OPENAI_MODEL:gpt-4.1-mini}

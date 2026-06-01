@@ -10,6 +10,7 @@ This project demonstrates a traceable AI-agent workflow with a Spring Boot backe
 - Built-in tools for time, calculation, project file listing, and project code description
 - Guardrails for tool execution and max agent steps
 - Ollama local LLM mode by default
+- Qwen OpenAI-compatible API provider
 - Demo mode that works without a real LLM
 - Optional OpenAI-compatible Chat Completions mode
 - Angular proxy for local development
@@ -79,6 +80,16 @@ Use deterministic demo mode without any real LLM:
 
 ```powershell
 $env:AGENT_PROVIDER="demo"
+mvn spring-boot:run
+```
+
+Use the Qwen API endpoint:
+
+```powershell
+$env:AGENT_PROVIDER="qwen"
+$env:QWEN_API_KEY="your-qwen-key"
+$env:QWEN_BASE_URL="http://103.42.50.41:443/api1"
+$env:QWEN_MODEL="Qwen/Qwen2.5-7B-Instruct-AWQ"
 mvn spring-boot:run
 ```
 
