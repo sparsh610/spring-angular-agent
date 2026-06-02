@@ -98,7 +98,7 @@ public class ExplainAppFlowTool implements AgentTool {
                 - AgentService includes tool schemas in the system prompt.
                 - If the model asks for a tool, AgentService executes it and stores the result in ToolTrace.
                 - Existing tools include current_time, calculate, list_project_files, describe_code, explain_app_flow, and add_feature.
-                - add_feature writes or replaces a source file inside the project so the agent can implement requested functionality.
+                - add_feature edits an existing source file (via find/replace or a model edit that preserves the file) or creates a new one, so the agent can implement requested functionality without clobbering existing code.
                 """.strip();
     }
 

@@ -70,6 +70,60 @@ class AddFeatureToolTest {
     }
 
     @Test
+    void editReplacesSnippetWithoutClobbering() throws Exception {
+        String relative = "src/test/java/com/example/agent/tool/EditSample.json";
+        Path file = Path.of("").toAbsolutePath().resolve(relative).normalize();
+        try {
+            tool.run(Map.of("path", relative, "content", "{\"label\":\"old\",\"keep\":true}"));
+            String result = tool.run(Map.of(
+                    "path", relative,
+                    "find", "\"old\"",
+                    "replace", "\"new\""
+            ));
+            assertTrue(result.startsWith("Edited "), "expected Edited verb, was: " + result);
+            assertEquals("{\"label\":\"new\",\"keep\":true}", Files.readString(file).strip());
+        } finally {
+            Files.deleteIfExists(file);
+        }
+    }
+
+    @Test
+    void editFailsWhenFindMissing() throws Exception {
+        String relative = "src/test/java/com/example/agent/tool/EditMissing.json";
+        Path file = Path.of("").toAbsolutePath().resolve(relative).normalize();
+        try {
+            tool.run(Map.of("path", relative, "content", "{\"a\":1}"));
+            assertThrows(IllegalArgumentException.class, () -> tool.run(Map.of(
+                    "path", relative, "find", "not-present", "replace", "x"
+            )));
+        } finally {
+            Files.deleteIfExists(file);
+        }
+    }
+
+    @Test
+    void editFailsWhenFindAmbiguous() throws Exception {
+        String relative = "src/test/java/com/example/agent/tool/EditDup.json";
+        Path file = Path.of("").toAbsolutePath().resolve(relative).normalize();
+        try {
+            tool.run(Map.of("path", relative, "content", "{\"x\":\"x\"}"));
+            assertThrows(IllegalArgumentException.class, () -> tool.run(Map.of(
+                    "path", relative, "find", "x", "replace", "y"
+            )));
+        } finally {
+            Files.deleteIfExists(file);
+        }
+    }
+
+    @Test
+    void editFailsWhenFileMissing() {
+        assertThrows(IllegalArgumentException.class, () -> tool.run(Map.of(
+                "path", "src/test/java/com/example/agent/tool/DoesNotExist.json",
+                "find", "a", "replace", "b"
+        )));
+    }
+
+    @Test
     void rejectsPathOutsideAllowedRoots() {
         assertThrows(IllegalArgumentException.class, () -> tool.run(Map.of(
                 "path", "pom.xml",
