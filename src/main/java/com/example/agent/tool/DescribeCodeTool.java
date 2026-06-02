@@ -47,7 +47,7 @@ public class DescribeCodeTool implements AgentTool {
         summary.append("Project code summary\n");
         summary.append("- Backend: Spring Boot REST API exposes /api/agent/chat.\n");
         summary.append("- Agent loop: AgentService sends messages to the selected model, parses JSON actions, executes tools, and returns optional trace data.\n");
-        summary.append("- Tools: ToolRegistry wires current_time, calculate, list_project_files, describe_code, and explain_app_flow.\n");
+        summary.append("- Tools: ToolRegistry wires current_time, calculate, list_project_files, describe_code, explain_app_flow, and add_feature.\n");
         summary.append("- LLM clients: DemoModelClient works without an API key; OpenAiModelClient supports OpenAI-compatible chat completions.\n");
         summary.append("- Frontend: Angular standalone component provides chat input, example prompts, and a tool trace panel.\n");
         summary.append("- Guardrails: requests are validated, agent steps are limited, and file listing stays inside the project directory.\n");

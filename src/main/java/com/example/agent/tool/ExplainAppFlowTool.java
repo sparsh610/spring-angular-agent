@@ -97,7 +97,8 @@ public class ExplainAppFlowTool implements AgentTool {
                 - ToolRegistry receives all AgentTool beans and stores them by tool name.
                 - AgentService includes tool schemas in the system prompt.
                 - If the model asks for a tool, AgentService executes it and stores the result in ToolTrace.
-                - Existing tools include current_time, calculate, list_project_files, describe_code, and explain_app_flow.
+                - Existing tools include current_time, calculate, list_project_files, describe_code, explain_app_flow, and add_feature.
+                - add_feature writes or replaces a source file inside the project so the agent can implement requested functionality.
                 """.strip();
     }
 
