@@ -5,14 +5,27 @@
         <h1>Spring Angular Agent</h1>
         <p>Tool-using agent with backend guardrails and visible execution trace.</p>
       </div>
-      <label class="trace-toggle">
-        <input
-          type="checkbox"
-          [ngModel]="traceEnabled()"
-          (ngModelChange)="traceEnabled.set($event)"
-        >
-        <span>Trace</span>
-      </label>
+      <div class="topbar-actions">
+        <label class="trace-toggle">
+          <input
+            type="checkbox"
+            [ngModel]="traceEnabled()"
+            (ngModelChange)="traceEnabled.set($event)"
+          >
+          <span>Trace</span>
+        </label>
+        <button
+          type="button"
+          class="clear-chat"
+          (click)="onButtonClick()"
+          [disabled]="loading()"
+        >Clear chat</button>
+        <button
+          type="button"
+          class="clear-chat"
+          (click)="onNewButtonClick()"
+        >New Button</button>
+      </div>
     </header>
 
     <div class="examples" aria-label="Example prompts">

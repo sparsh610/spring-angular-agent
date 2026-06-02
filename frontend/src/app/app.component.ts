@@ -73,6 +73,30 @@ export class AppComponent {
     this.message.set(text);
   }
 
+  onButtonClick(): void {
+    this.messages.set([
+      {
+        role: 'agent',
+        text: 'Chat cleared. Ask for the current time, a calculation, project files, a code description, or the end-to-end app flow.',
+        provider: 'system',
+        trace: []
+      }
+    ]);
+    this.error.set('');
+  }
+
+  onNewButtonClick(): void {
+    this.messages.update((items) => [
+      ...items,
+      {
+        role: 'agent',
+        text: 'New Button clicked.',
+        provider: 'system',
+        trace: []
+      }
+    ]);
+  }
+
   formatArguments(value: Record<string, unknown>): string {
     return JSON.stringify(value, null, 2);
   }
