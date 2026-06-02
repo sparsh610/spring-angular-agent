@@ -82,6 +82,8 @@ public class AddFeatureTool implements AgentTool {
                     "File type not allowed. Allowed extensions: " + String.join(", ", ALLOWED_EXTENSIONS));
         }
 
+        Object rawContent = arguments.get("content");
+        boolean modelGenerated = rawContent == null || String.valueOf(rawContent).isBlank();
         String content = resolveContent(arguments, path);
         if (content.length() > MAX_CONTENT_LENGTH) {
             throw new IllegalArgumentException(
@@ -100,8 +102,10 @@ public class AddFeatureTool implements AgentTool {
 
         String relative = root.relativize(target).toString();
         long lines = content.lines().count();
-        return (existed ? "Updated " : "Created ") + relative
-                + " using " + modelClientFactory.current().providerName()
+        String source = modelGenerated
+                ? " using " + modelClientFactory.current().providerName()
+                : " from supplied content";
+        return (existed ? "Updated " : "Created ") + relative + source
                 + " (" + lines + " lines, " + content.length() + " characters).";
     }
 
