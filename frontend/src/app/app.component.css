@@ -44,6 +44,31 @@ h1 {
   color: #5b677a;
 }
 
+.topbar-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.clear-chat {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #334155;
+  font-weight: 650;
+  padding: 8px 14px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.clear-chat:hover:not(:disabled) {
+  background: #f1f5f9;
+}
+
+.clear-chat:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .trace-toggle {
   display: inline-flex;
   align-items: center;
