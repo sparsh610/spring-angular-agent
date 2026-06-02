@@ -32,6 +32,44 @@ class AddFeatureToolTest {
     }
 
     @Test
+    void compilesJavaFileForHotReload() throws Exception {
+        String relative = "src/test/java/com/example/agent/tool/HotReloadSample.java";
+        Path root = Path.of("").toAbsolutePath();
+        Path source = root.resolve(relative).normalize();
+        Path compiled = root.resolve("target/classes/com/example/agent/tool/HotReloadSample.class").normalize();
+        try {
+            String result = tool.run(Map.of(
+                    "path", relative,
+                    "content", "package com.example.agent.tool;\n"
+                            + "public class HotReloadSample { public int value() { return 42; } }\n"
+            ));
+            assertTrue(result.contains("Compiled it into target/classes"),
+                    "expected hot-reload compile message, was: " + result);
+            assertTrue(Files.exists(compiled), "a .class file should be produced");
+        } finally {
+            Files.deleteIfExists(source);
+            Files.deleteIfExists(compiled);
+        }
+    }
+
+    @Test
+    void reportsCompilationErrorsWithoutCrashing() throws Exception {
+        String relative = "src/test/java/com/example/agent/tool/BrokenSample.java";
+        Path source = Path.of("").toAbsolutePath().resolve(relative).normalize();
+        try {
+            String result = tool.run(Map.of(
+                    "path", relative,
+                    "content", "package com.example.agent.tool;\n"
+                            + "public class BrokenSample { this is not valid java }\n"
+            ));
+            assertTrue(result.contains("Compilation failed"),
+                    "expected compilation failure message, was: " + result);
+        } finally {
+            Files.deleteIfExists(source);
+        }
+    }
+
+    @Test
     void rejectsPathOutsideAllowedRoots() {
         assertThrows(IllegalArgumentException.class, () -> tool.run(Map.of(
                 "path", "pom.xml",

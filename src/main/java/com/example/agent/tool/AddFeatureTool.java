@@ -4,12 +4,19 @@ import com.example.agent.llm.ChatMessage;
 import com.example.agent.llm.ModelClientFactory;
 import org.springframework.stereotype.Component;
 
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticCollector;
+import javax.tools.JavaCompiler;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Component
 public class AddFeatureTool implements AgentTool {
@@ -23,6 +30,9 @@ public class AddFeatureTool implements AgentTool {
             ".java", ".ts", ".html", ".css", ".scss", ".json", ".yml", ".yaml", ".properties"
     );
     private static final int MAX_CONTENT_LENGTH = 60_000;
+    // Must match <java.version> in pom.xml so generated classes match the bytecode
+    // version the running Spring context (and its ASM scanner) can read on restart.
+    private static final String TARGET_RELEASE = "17";
     private static final String GENERATION_SYSTEM_PROMPT = """
             You are a senior engineer working on a Spring Boot + Angular project.
             Generate the complete contents of a single source file that implements the requested feature.
@@ -47,7 +57,8 @@ public class AddFeatureTool implements AgentTool {
         return "Add or improve functionality by generating a source file with the configured model "
                 + "and writing it to the project. Provide a clear description of the feature and the "
                 + "target file path. Allowed under src/main/java, src/main/resources, src/test/java, "
-                + "and frontend/src.";
+                + "and frontend/src. Java files are recompiled so Spring Boot DevTools hot-reloads them; "
+                + "frontend files hot-reload when ng serve is running.";
     }
 
     @Override
@@ -105,8 +116,50 @@ public class AddFeatureTool implements AgentTool {
         String source = modelGenerated
                 ? " using " + modelClientFactory.current().providerName()
                 : " from supplied content";
+        String deploy = relative.toLowerCase().endsWith(".java")
+                ? " " + hotReload(target, root)
+                : " Frontend changes hot-reload automatically when ng serve is running.";
         return (existed ? "Updated " : "Created ") + relative + source
-                + " (" + lines + " lines, " + content.length() + " characters).";
+                + " (" + lines + " lines, " + content.length() + " characters)." + deploy;
+    }
+
+    private String hotReload(Path javaFile, Path root) {
+        JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+        if (compiler == null) {
+            return "No JDK compiler is available, so the class was not built; "
+                    + "restart the backend to load the change.";
+        }
+        Path classesDir = root.resolve("target").resolve("classes");
+        DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+        try (StandardJavaFileManager fileManager =
+                     compiler.getStandardFileManager(diagnostics, null, StandardCharsets.UTF_8)) {
+            Files.createDirectories(classesDir);
+            Iterable<? extends JavaFileObject> units =
+                    fileManager.getJavaFileObjects(javaFile.toFile());
+            List<String> options = List.of(
+                    "--release", TARGET_RELEASE,
+                    "-classpath", System.getProperty("java.class.path", ""),
+                    "-d", classesDir.toString()
+            );
+            boolean compiled = compiler.getTask(null, fileManager, diagnostics, options, null, units).call();
+            if (compiled) {
+                return "Compiled it into target/classes; Spring Boot DevTools will restart "
+                        + "and load the change automatically.";
+            }
+            return "Compilation failed, so the running app was left untouched. Fix these errors: "
+                    + formatDiagnostics(diagnostics);
+        } catch (IOException exc) {
+            return "Could not compile the class for hot reload (" + exc.getMessage()
+                    + "); restart the backend to load the change.";
+        }
+    }
+
+    private String formatDiagnostics(DiagnosticCollector<JavaFileObject> diagnostics) {
+        return diagnostics.getDiagnostics().stream()
+                .filter(diagnostic -> diagnostic.getKind() == Diagnostic.Kind.ERROR)
+                .map(diagnostic -> "line " + diagnostic.getLineNumber() + ": " + diagnostic.getMessage(null))
+                .limit(10)
+                .collect(Collectors.joining("; "));
     }
 
     private String resolveContent(Map<String, Object> arguments, String path) {
