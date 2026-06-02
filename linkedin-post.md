@@ -47,6 +47,9 @@ My main takeaway:
 
 the future of AI apps will not be just better prompts. It will be better systems around the model.
 
+GitHub repo:
+https://github.com/sparsh610/spring-angular-agent
+
 #AIAgents #AIEngineering #SpringBoot #Angular #Java #FullStackDevelopment #Ollama #OpenAI #SoftwareEngineering
 
 ## Short Version
@@ -67,5 +70,8 @@ It includes:
 The key lesson:
 
 an AI agent is not just a prompt. Once it can use tools, we need backend engineering discipline around permissions, validation, logging, fallbacks, and user visibility.
+
+GitHub repo:
+https://github.com/sparsh610/spring-angular-agent
 
 #AIAgents #AIEngineering #SpringBoot #Angular #Java #SoftwareEngineering
