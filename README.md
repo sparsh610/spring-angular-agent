@@ -16,6 +16,10 @@ This project demonstrates a traceable AI-agent workflow with a Spring Boot backe
 - Angular proxy for local development
 - One-port production mode where Spring Boot serves the Angular build
 
+## LinkedIn Draft
+
+A project-backed LinkedIn post draft is available in [`linkedin-post.md`](linkedin-post.md).
+
 ## Run In Development
 
 Start Spring Boot:
