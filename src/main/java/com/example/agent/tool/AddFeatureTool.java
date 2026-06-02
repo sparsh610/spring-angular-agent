@@ -33,12 +33,25 @@ public class AddFeatureTool implements AgentTool {
     // Must match <java.version> in pom.xml so generated classes match the bytecode
     // version the running Spring context (and its ASM scanner) can read on restart.
     private static final String TARGET_RELEASE = "17";
-    private static final String GENERATION_SYSTEM_PROMPT = """
+    // Refuse a model-generated overwrite that drops most of a non-trivial existing
+    // file: that is almost always an accidental clobber, not the requested edit.
+    private static final int CLOBBER_GUARD_MIN_CHARS = 400;
+    private static final double CLOBBER_GUARD_RATIO = 0.5;
+    private static final String CREATE_SYSTEM_PROMPT = """
             You are a senior engineer working on a Spring Boot + Angular project.
-            Generate the complete contents of a single source file that implements the requested feature.
+            Generate the complete contents of a single new source file that implements the requested feature.
             Match the conventions already used in the project for the given file path and type.
             Respond with only the raw file contents.
             Do not add explanations, comments about the request, or markdown code fences.
+            """;
+    private static final String EDIT_SYSTEM_PROMPT = """
+            You are a senior engineer editing an existing file in a Spring Boot + Angular project.
+            You are given the current file contents and a requested change.
+            Return the COMPLETE updated file with the change applied.
+            Preserve all existing code, markup, imports, and structure that the change does not touch.
+            Never replace the whole file with only the new snippet.
+            Respond with only the raw file contents.
+            Do not add explanations or markdown code fences.
             """;
 
     private final ModelClientFactory modelClientFactory;
@@ -54,21 +67,26 @@ public class AddFeatureTool implements AgentTool {
 
     @Override
     public String description() {
-        return "Add or improve functionality by generating a source file with the configured model "
-                + "and writing it to the project. Provide a clear description of the feature and the "
-                + "target file path. Allowed under src/main/java, src/main/resources, src/test/java, "
-                + "and frontend/src. Java files are recompiled so Spring Boot DevTools hot-reloads them; "
-                + "frontend files hot-reload when ng serve is running.";
+        return "Add or improve functionality by writing a source file. "
+                + "To change an EXISTING file, prefer a targeted edit: pass find (the exact snippet to "
+                + "replace) and replace (the new snippet) so the rest of the file is preserved. "
+                + "Otherwise pass a request and the configured model edits the existing file or creates a "
+                + "new one, or pass content to write exact contents. Allowed under src/main/java, "
+                + "src/main/resources, src/test/java, and frontend/src. Java files are recompiled so Spring "
+                + "Boot DevTools hot-reloads them; frontend files hot-reload when ng serve is running.";
     }
 
     @Override
     public Map<String, String> parameters() {
         return Map.of(
-                "request", "Describe the functionality to add or improve.",
                 "path", "Relative target file path, for example "
-                        + "src/main/java/com/example/agent/tool/MyTool.java.",
-                "content", "Optional. Exact file contents to write. If omitted, the model generates them "
-                        + "from the request."
+                        + "frontend/src/app/app.component.html.",
+                "find", "Optional. Exact existing snippet to replace (targeted edit). Must match once. "
+                        + "Best way to change an existing file without clobbering it.",
+                "replace", "Replacement snippet for find. Use an empty string to delete the snippet.",
+                "request", "Optional. Describe the change; the model edits the existing file (preserving it) "
+                        + "or creates a new one.",
+                "content", "Optional. Exact full file contents to write."
         );
     }
 
@@ -93,34 +111,132 @@ public class AddFeatureTool implements AgentTool {
                     "File type not allowed. Allowed extensions: " + String.join(", ", ALLOWED_EXTENSIONS));
         }
 
-        Object rawContent = arguments.get("content");
-        boolean modelGenerated = rawContent == null || String.valueOf(rawContent).isBlank();
-        String content = resolveContent(arguments, path);
-        if (content.length() > MAX_CONTENT_LENGTH) {
+        String relative = root.relativize(target).toString();
+        boolean existed = Files.exists(target);
+        Resolution resolution = resolveContent(arguments, path, target, relative, existed);
+        if (resolution.content().length() > MAX_CONTENT_LENGTH) {
             throw new IllegalArgumentException(
-                    "Generated content exceeds the " + MAX_CONTENT_LENGTH + " character limit");
+                    "Resulting content exceeds the " + MAX_CONTENT_LENGTH + " character limit");
         }
 
-        boolean existed = Files.exists(target);
         try {
             if (target.getParent() != null) {
                 Files.createDirectories(target.getParent());
             }
-            Files.writeString(target, content, StandardCharsets.UTF_8);
+            Files.writeString(target, resolution.content(), StandardCharsets.UTF_8);
         } catch (IOException exc) {
             throw new IllegalStateException("Could not write file: " + exc.getMessage(), exc);
         }
 
-        String relative = root.relativize(target).toString();
-        long lines = content.lines().count();
-        String source = modelGenerated
+        long lines = resolution.content().lines().count();
+        String source = resolution.modelUsed()
                 ? " using " + modelClientFactory.current().providerName()
-                : " from supplied content";
+                : "";
         String deploy = relative.toLowerCase().endsWith(".java")
                 ? " " + hotReload(target, root)
                 : " Frontend changes hot-reload automatically when ng serve is running.";
-        return (existed ? "Updated " : "Created ") + relative + source
-                + " (" + lines + " lines, " + content.length() + " characters)." + deploy;
+        return resolution.verb() + " " + relative + source
+                + " (" + lines + " lines, " + resolution.content().length() + " characters)." + deploy;
+    }
+
+    private Resolution resolveContent(
+            Map<String, Object> arguments, String path, Path target, String relative, boolean existed) {
+        Object rawFind = arguments.get("find");
+        if (rawFind != null && !String.valueOf(rawFind).isBlank()) {
+            return editByFindReplace(arguments, target, relative, existed, String.valueOf(rawFind));
+        }
+
+        Object rawContent = arguments.get("content");
+        if (rawContent != null && !String.valueOf(rawContent).isBlank()) {
+            return new Resolution(String.valueOf(rawContent), false, existed ? "Updated" : "Created");
+        }
+
+        String request = String.valueOf(arguments.getOrDefault("request", "")).trim();
+        if (request.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Provide find+replace, content, or a request describing the change");
+        }
+        return existed
+                ? generateEdit(path, target, relative, request)
+                : new Resolution(generateNewFile(path, request), true, "Created");
+    }
+
+    private Resolution editByFindReplace(
+            Map<String, Object> arguments, Path target, String relative, boolean existed, String find) {
+        if (!existed) {
+            throw new IllegalArgumentException(
+                    "Cannot edit " + relative + " because it does not exist. "
+                            + "Provide content or a request to create it.");
+        }
+        String existing = readFile(target, relative);
+        int occurrences = countOccurrences(existing, find);
+        if (occurrences == 0) {
+            throw new IllegalArgumentException(
+                    "The find text was not found in " + relative
+                            + ". Provide the exact existing snippet to replace.");
+        }
+        if (occurrences > 1) {
+            throw new IllegalArgumentException(
+                    "The find text appears " + occurrences + " times in " + relative
+                            + ". Include enough surrounding context to make it unique.");
+        }
+        String replace = String.valueOf(arguments.getOrDefault("replace", ""));
+        return new Resolution(existing.replace(find, replace), false, "Edited");
+    }
+
+    private Resolution generateEdit(String path, Path target, String relative, String request) {
+        String existing = readFile(target, relative);
+        List<ChatMessage> messages = List.of(
+                new ChatMessage("system", EDIT_SYSTEM_PROMPT),
+                new ChatMessage("user", "Target file: " + path
+                        + "\n\nCurrent file contents:\n" + existing
+                        + "\n\nRequested change: " + request
+                        + "\n\nReturn the complete updated file.")
+        );
+        String generated = complete(messages);
+        if (existing.length() >= CLOBBER_GUARD_MIN_CHARS
+                && generated.length() < existing.length() * CLOBBER_GUARD_RATIO) {
+            throw new IllegalStateException(
+                    "Refusing to overwrite " + relative + ": the generated file ("
+                            + generated.length() + " chars) is less than half the existing file ("
+                            + existing.length() + " chars), which looks like an accidental clobber. "
+                            + "Use find+replace for a targeted edit.");
+        }
+        return new Resolution(generated, true, "Updated");
+    }
+
+    private String generateNewFile(String path, String request) {
+        List<ChatMessage> messages = List.of(
+                new ChatMessage("system", CREATE_SYSTEM_PROMPT),
+                new ChatMessage("user", "Target file: " + path + "\nFeature request: " + request)
+        );
+        return complete(messages);
+    }
+
+    private String complete(List<ChatMessage> messages) {
+        String generated = modelClientFactory.current().complete(messages);
+        if (generated == null || generated.isBlank()) {
+            throw new IllegalStateException("The model returned no content for the requested change");
+        }
+        return stripCodeFence(generated);
+    }
+
+    private String readFile(Path target, String relative) {
+        try {
+            return Files.readString(target, StandardCharsets.UTF_8);
+        } catch (IOException exc) {
+            throw new IllegalStateException("Could not read " + relative + ": " + exc.getMessage(), exc);
+        }
+    }
+
+    private int countOccurrences(String haystack, String needle) {
+        int count = 0;
+        int index = 0;
+        while ((index = haystack.indexOf(needle, index)) >= 0) {
+            count++;
+            index += needle.length();
+        }
+        return count;
     }
 
     private String hotReload(Path javaFile, Path root) {
@@ -162,28 +278,6 @@ public class AddFeatureTool implements AgentTool {
                 .collect(Collectors.joining("; "));
     }
 
-    private String resolveContent(Map<String, Object> arguments, String path) {
-        Object rawContent = arguments.get("content");
-        if (rawContent != null && !String.valueOf(rawContent).isBlank()) {
-            return String.valueOf(rawContent);
-        }
-
-        String request = String.valueOf(arguments.getOrDefault("request", "")).trim();
-        if (request.isBlank()) {
-            throw new IllegalArgumentException("Provide either content or a request describing the feature");
-        }
-
-        List<ChatMessage> messages = List.of(
-                new ChatMessage("system", GENERATION_SYSTEM_PROMPT),
-                new ChatMessage("user", "Target file: " + path + "\nFeature request: " + request)
-        );
-        String generated = modelClientFactory.current().complete(messages);
-        if (generated == null || generated.isBlank()) {
-            throw new IllegalStateException("The model returned no content for the requested feature");
-        }
-        return stripCodeFence(generated);
-    }
-
     private String stripCodeFence(String text) {
         String cleaned = text.strip();
         if (cleaned.startsWith("```")) {
@@ -202,5 +296,8 @@ public class AddFeatureTool implements AgentTool {
     private boolean hasAllowedExtension(Path target) {
         String fileName = target.getFileName().toString().toLowerCase();
         return ALLOWED_EXTENSIONS.stream().anyMatch(fileName::endsWith);
+    }
+
+    private record Resolution(String content, boolean modelUsed, String verb) {
     }
 }
